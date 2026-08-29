@@ -1,0 +1,681 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>A4 随机迷宫生成器</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: #20231f;
+      background: #f6f7f2;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body { margin: 0; min-height: 100%; }
+
+    body { padding: 24px; }
+
+    .app {
+      width: min(100%, 980px);
+      margin: 0 auto;
+    }
+
+    h1 {
+      margin: 0 0 16px;
+      font-size: clamp(1.45rem, 3vw, 2rem);
+      text-align: center;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: end;
+      justify-content: center;
+      gap: 14px;
+      padding: 16px;
+      border: 1px solid #d9ddd3;
+      border-radius: 12px;
+      background: #fff;
+    }
+
+    .field {
+      display: grid;
+      gap: 6px;
+      min-width: 150px;
+    }
+
+    label, legend {
+      font-size: .9rem;
+      font-weight: 650;
+    }
+
+    select, input, button {
+      min-height: 42px;
+      border: 1px solid #aeb5a7;
+      border-radius: 8px;
+      background: #fff;
+      color: inherit;
+      font: inherit;
+    }
+
+    select, input { padding: 8px 10px; }
+
+    .custom-size {
+      display: none;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .custom-size.visible { display: flex; }
+
+    .custom-size input { width: 78px; }
+
+    button {
+      padding: 9px 20px;
+      border-color: #355f3d;
+      background: #3f7148;
+      color: #fff;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    button:hover { background: #345f3c; }
+    button:focus-visible, select:focus-visible, input:focus-visible {
+      outline: 3px solid #b8d6bd;
+      outline-offset: 2px;
+    }
+
+    .status {
+      min-height: 1.4em;
+      margin: 8px 0 0;
+      color: #6a3f00;
+      font-size: .88rem;
+      text-align: center;
+    }
+
+    .maze-stage {
+      --screen-ratio: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      min-height: min(70vh, 760px);
+      margin-top: 18px;
+      padding: 8px;
+      overflow: hidden;
+      background: #fff;
+      border: 1px solid #e0e2dc;
+    }
+
+    #mazeSvg {
+      display: block;
+      width: min(100%, calc(70vh * var(--screen-ratio)));
+      max-height: 70vh;
+      background: #fff;
+    }
+
+    .wall {
+      stroke: #000;
+      stroke-width: 1.55;
+      stroke-linecap: square;
+      vector-effect: non-scaling-stroke;
+    }
+
+    .direction-arrow {
+      fill: none;
+      stroke: #000;
+      stroke-width: 2.2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      vector-effect: non-scaling-stroke;
+    }
+
+    @media (max-width: 620px) {
+      body { padding: 12px; }
+      .controls { align-items: stretch; }
+      .field, button { width: 100%; }
+      .custom-size { justify-content: center; }
+      .maze-stage { min-height: 55vh; }
+      #mazeSvg { max-height: 60vh; }
+    }
+
+    /* 打印时锁定为单页 A4，并隐藏所有操作界面。 */
+    @page { size: A4 portrait; margin: 10mm; }
+
+    @media print {
+      html, body {
+        width: 210mm;
+        height: 297mm;
+        min-height: 0;
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        background: #fff;
+      }
+
+      .app {
+        width: 190mm;
+        height: 277mm;
+        margin: 0;
+      }
+
+      h1, .controls, .status { display: none !important; }
+
+      .maze-stage {
+        display: flex;
+        width: 190mm;
+        height: 277mm;
+        min-height: 0;
+        margin: 0;
+        padding: 0;
+        border: 0;
+        overflow: hidden;
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
+
+      #mazeSvg {
+        width: var(--print-width);
+        height: var(--print-height);
+        max-width: 190mm;
+        max-height: 277mm;
+      }
+
+      .wall { stroke-width: 1.35; }
+      .direction-arrow { stroke-width: 1.9; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <h1>A4 随机迷宫生成器</h1>
+
+    <section class="controls" aria-label="迷宫设置">
+      <div class="field">
+        <label for="sizeSelect">迷宫大小</label>
+        <select id="sizeSelect">
+          <option value="10x10">小（10 × 10）</option>
+          <option value="15x15">较小（15 × 15）</option>
+          <option value="20x20" selected>中等（20 × 20）</option>
+          <option value="25x25">较大（25 × 25）</option>
+          <option value="30x30">大（30 × 30）</option>
+          <option value="custom">自定义</option>
+        </select>
+      </div>
+
+      <div id="customSize" class="custom-size" aria-label="自定义尺寸">
+        <div class="field">
+          <label for="customWidth">宽度</label>
+          <input id="customWidth" type="number" min="5" max="50" value="20" inputmode="numeric">
+        </div>
+        <span aria-hidden="true">×</span>
+        <div class="field">
+          <label for="customHeight">高度</label>
+          <input id="customHeight" type="number" min="5" max="50" value="20" inputmode="numeric">
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="difficultySelect">迷宫难度</label>
+        <select id="difficultySelect">
+          <option value="easy">简单</option>
+          <option value="normal" selected>普通</option>
+          <option value="hard">困难</option>
+        </select>
+      </div>
+
+      <button id="generateButton" type="button">生成新迷宫</button>
+    </section>
+
+    <p id="status" class="status" role="status" aria-live="polite"></p>
+    <section id="mazeStage" class="maze-stage" aria-label="当前迷宫">
+      <svg id="mazeSvg" role="img" aria-label="随机生成的迷宫"></svg>
+    </section>
+  </main>
+
+  <script>
+    (() => {
+      "use strict";
+
+      const N = 1;
+      const E = 2;
+      const S = 4;
+      const W = 8;
+      const ALL_WALLS = N | E | S | W;
+      const DIRECTIONS = [
+        { bit: N, opposite: S, dx: 0, dy: -1 },
+        { bit: E, opposite: W, dx: 1, dy: 0 },
+        { bit: S, opposite: N, dx: 0, dy: 1 },
+        { bit: W, opposite: E, dx: -1, dy: 0 }
+      ];
+      const SVG_NS = "http://www.w3.org/2000/svg";
+
+      const sizeSelect = document.querySelector("#sizeSelect");
+      const difficultySelect = document.querySelector("#difficultySelect");
+      const customSize = document.querySelector("#customSize");
+      const customWidth = document.querySelector("#customWidth");
+      const customHeight = document.querySelector("#customHeight");
+      const generateButton = document.querySelector("#generateButton");
+      const status = document.querySelector("#status");
+      const mazeStage = document.querySelector("#mazeStage");
+      const mazeSvg = document.querySelector("#mazeSvg");
+
+      const randomInt = max => Math.floor(Math.random() * max);
+      const cellIndex = (x, y, width) => y * width + x;
+
+      function clampDimension(input) {
+        const original = Number(input.value);
+        const safe = Number.isFinite(original) ? Math.round(original) : 20;
+        const clamped = Math.min(50, Math.max(5, safe));
+        input.value = String(clamped);
+        return { value: clamped, changed: original !== clamped };
+      }
+
+      function getDimensions() {
+        if (sizeSelect.value !== "custom") {
+          const [width, height] = sizeSelect.value.split("x").map(Number);
+          return { width, height };
+        }
+
+        const width = clampDimension(customWidth);
+        const height = clampDimension(customHeight);
+        status.textContent = width.changed || height.changed
+          ? "自定义尺寸已限制在 5 × 5 至 50 × 50 之间。"
+          : "";
+        return { width: width.value, height: height.value };
+      }
+
+      function boundaryCells(width, height) {
+        const cells = [];
+        for (let x = 0; x < width; x += 1) {
+          cells.push({ x, y: 0, side: "top" });
+          if (height > 1) cells.push({ x, y: height - 1, side: "bottom" });
+        }
+        for (let y = 1; y < height - 1; y += 1) {
+          cells.push({ x: 0, y, side: "left" });
+          if (width > 1) cells.push({ x: width - 1, y, side: "right" });
+        }
+        return cells;
+      }
+
+      /*
+       * Growing Tree 算法生成完美迷宫：每次只连接一个未访问格子，
+       * 因此所有格子连通且任意两格之间只有一条通路。
+       * newestBias 越高越接近深度优先，straightBias 控制长走廊倾向。
+       */
+      function generatePerfectMaze(width, height, newestBias, straightBias) {
+        const cells = new Uint8Array(width * height);
+        cells.fill(ALL_WALLS);
+        const visited = new Uint8Array(width * height);
+        const start = randomInt(cells.length);
+        visited[start] = 1;
+        const active = [{ index: start, lastBit: 0 }];
+
+        while (active.length) {
+          const activePosition = Math.random() < newestBias
+            ? active.length - 1
+            : randomInt(active.length);
+          const current = active[activePosition];
+          const x = current.index % width;
+          const y = Math.floor(current.index / width);
+          const available = [];
+
+          for (const direction of DIRECTIONS) {
+            const nx = x + direction.dx;
+            const ny = y + direction.dy;
+            if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
+            const nextIndex = cellIndex(nx, ny, width);
+            if (!visited[nextIndex]) available.push({ ...direction, nextIndex });
+          }
+
+          if (!available.length) {
+            active.splice(activePosition, 1);
+            continue;
+          }
+
+          let direction;
+          const straight = available.find(candidate => candidate.bit === current.lastBit);
+          if (straight && Math.random() < straightBias) {
+            direction = straight;
+          } else {
+            direction = available[randomInt(available.length)];
+          }
+
+          cells[current.index] &= ~direction.bit;
+          cells[direction.nextIndex] &= ~direction.opposite;
+          visited[direction.nextIndex] = 1;
+          active.push({ index: direction.nextIndex, lastBit: direction.bit });
+        }
+
+        return cells;
+      }
+
+      function openNeighbors(index, cells, width, height) {
+        const x = index % width;
+        const y = Math.floor(index / width);
+        const result = [];
+        for (const direction of DIRECTIONS) {
+          if (cells[index] & direction.bit) continue;
+          const nx = x + direction.dx;
+          const ny = y + direction.dy;
+          if (nx >= 0 && ny >= 0 && nx < width && ny < height) {
+            result.push(cellIndex(nx, ny, width));
+          }
+        }
+        return result;
+      }
+
+      function distancesFrom(start, cells, width, height) {
+        const distance = new Int32Array(cells.length);
+        const parent = new Int32Array(cells.length);
+        distance.fill(-1);
+        parent.fill(-1);
+        const queue = new Int32Array(cells.length);
+        let head = 0;
+        let tail = 0;
+        queue[tail++] = start;
+        distance[start] = 0;
+
+        while (head < tail) {
+          const current = queue[head++];
+          for (const next of openNeighbors(current, cells, width, height)) {
+            if (distance[next] !== -1) continue;
+            distance[next] = distance[current] + 1;
+            parent[next] = current;
+            queue[tail++] = next;
+          }
+        }
+        return { distance, parent };
+      }
+
+      function chooseOpeningPair(cells, width, height, difficulty) {
+        const boundary = boundaryCells(width, height);
+        const entrance = boundary[randomInt(boundary.length)];
+        const entranceIndex = cellIndex(entrance.x, entrance.y, width);
+        const traversal = distancesFrom(entranceIndex, cells, width, height);
+        const ranked = boundary
+          .filter(cell => cell.x !== entrance.x || cell.y !== entrance.y)
+          .map(cell => ({
+            ...cell,
+            distance: traversal.distance[cellIndex(cell.x, cell.y, width)]
+          }))
+          .sort((a, b) => a.distance - b.distance);
+
+        const minimumDistance = Math.max(4, Math.floor((width + height) * 0.55));
+        const distant = ranked.filter(cell => cell.distance >= minimumDistance);
+        const pool = distant.length ? distant : ranked.slice(-1);
+        const bands = {
+          easy: [0.55, 0.76],
+          normal: [0.76, 0.93],
+          hard: [0.93, 1]
+        };
+        const [low, high] = bands[difficulty];
+        const from = Math.min(pool.length - 1, Math.floor((pool.length - 1) * low));
+        const to = Math.min(pool.length - 1, Math.ceil((pool.length - 1) * high));
+        const exit = pool[from + randomInt(Math.max(1, to - from + 1))];
+        return { entrance, exit, traversal };
+      }
+
+      function pathBetween(exitIndex, entranceIndex, parent) {
+        const path = [];
+        let current = exitIndex;
+        while (current !== -1) {
+          path.push(current);
+          if (current === entranceIndex) break;
+          current = parent[current];
+        }
+        path.reverse();
+        return path;
+      }
+
+      function countTurns(path, width) {
+        let turns = 0;
+        for (let i = 2; i < path.length; i += 1) {
+          const previousStep = path[i - 1] - path[i - 2];
+          const currentStep = path[i] - path[i - 1];
+          if (previousStep !== currentStep) turns += 1;
+        }
+        return turns;
+      }
+
+      function deepestMisleadingBranch(path, cells, width, height) {
+        const onPath = new Uint8Array(cells.length);
+        path.forEach(index => { onPath[index] = 1; });
+        let deepest = 0;
+
+        for (const pathCell of path) {
+          for (const neighbor of openNeighbors(pathCell, cells, width, height)) {
+            if (onPath[neighbor]) continue;
+            const stack = [{ index: neighbor, parent: pathCell, depth: 1 }];
+            while (stack.length) {
+              const current = stack.pop();
+              deepest = Math.max(deepest, current.depth);
+              for (const next of openNeighbors(current.index, cells, width, height)) {
+                if (next !== current.parent && !onPath[next]) {
+                  stack.push({ index: next, parent: current.index, depth: current.depth + 1 });
+                }
+              }
+            }
+          }
+        }
+        return deepest;
+      }
+
+      /*
+       * 难度分数侧重正确路线长度，同时参考转弯、路线上的决策点、
+       * 最深误导支路和全图死胡同比例。它只用于候选间相对比较。
+       */
+      function scoreMaze(cells, width, height, openings) {
+        const entranceIndex = cellIndex(openings.entrance.x, openings.entrance.y, width);
+        const exitIndex = cellIndex(openings.exit.x, openings.exit.y, width);
+        const path = pathBetween(exitIndex, entranceIndex, openings.traversal.parent);
+        const turns = countTurns(path, width);
+        let decisions = 0;
+        let deadEnds = 0;
+
+        for (let index = 0; index < cells.length; index += 1) {
+          const degree = openNeighbors(index, cells, width, height).length;
+          if (degree === 1) deadEnds += 1;
+        }
+        for (const index of path.slice(1, -1)) {
+          if (openNeighbors(index, cells, width, height).length > 2) decisions += 1;
+        }
+
+        const misleadingDepth = deepestMisleadingBranch(path, cells, width, height);
+        const pathRatio = path.length / cells.length;
+        const turnDensity = turns / Math.max(1, path.length - 2);
+        const decisionDensity = decisions / Math.max(1, path.length);
+        const scale = Math.max(1, width + height);
+        const score = pathRatio * 60
+          + turnDensity * 14
+          + Math.min(1.5, turns / scale) * 10
+          + decisionDensity * 9
+          + Math.min(1.5, misleadingDepth / scale) * 12
+          + (deadEnds / cells.length) * 5;
+
+        return { score, pathLength: path.length, turns, decisions, deadEnds, misleadingDepth };
+      }
+
+      function candidateCount(width, height) {
+        const area = width * height;
+        if (area <= 225) return 14;
+        if (area <= 625) return 11;
+        if (area <= 900) return 9;
+        return 7;
+      }
+
+      function createCandidate(width, height, difficulty) {
+        const profiles = {
+          easy: { newest: [0.12, 0.42], straight: [0.02, 0.22] },
+          normal: { newest: [0.42, 0.76], straight: [0.2, 0.56] },
+          hard: { newest: [0.8, 0.99], straight: [0.52, 0.86] }
+        };
+        const profile = profiles[difficulty];
+        const between = ([min, max]) => min + Math.random() * (max - min);
+        const cells = generatePerfectMaze(
+          width,
+          height,
+          between(profile.newest),
+          between(profile.straight)
+        );
+        const openings = chooseOpeningPair(cells, width, height, difficulty);
+        const metrics = scoreMaze(cells, width, height, openings);
+        return { cells, openings, metrics };
+      }
+
+      function generateBestMaze(width, height, difficulty) {
+        const candidates = [];
+        const count = candidateCount(width, height);
+        for (let i = 0; i < count; i += 1) {
+          candidates.push(createCandidate(width, height, difficulty));
+        }
+        candidates.sort((a, b) => a.metrics.score - b.metrics.score);
+        if (difficulty === "easy") return candidates[0];
+        if (difficulty === "hard") return candidates[candidates.length - 1];
+        return candidates[Math.floor(candidates.length / 2)];
+      }
+
+      function createLine(x1, y1, x2, y2, className) {
+        const line = document.createElementNS(SVG_NS, "line");
+        line.setAttribute("x1", x1);
+        line.setAttribute("y1", y1);
+        line.setAttribute("x2", x2);
+        line.setAttribute("y2", y2);
+        line.setAttribute("class", className);
+        return line;
+      }
+
+      function removeBoundaryWall(cells, opening, width) {
+        const index = cellIndex(opening.x, opening.y, width);
+        const sideToBit = { top: N, right: E, bottom: S, left: W };
+        cells[index] &= ~sideToBit[opening.side];
+      }
+
+      function arrowGeometry(opening, isEntrance) {
+        const centers = {
+          top: [opening.x + 0.5, 0],
+          right: [opening.x + 1, opening.y + 0.5],
+          bottom: [opening.x + 0.5, opening.y + 1],
+          left: [0, opening.y + 0.5]
+        };
+        const outward = {
+          top: [0, -1],
+          right: [1, 0],
+          bottom: [0, 1],
+          left: [-1, 0]
+        }[opening.side];
+        const boundary = centers[opening.side];
+        const outside = [boundary[0] + outward[0] * 1.25, boundary[1] + outward[1] * 1.25];
+        return isEntrance
+          ? { from: outside, to: boundary }
+          : { from: boundary, to: outside };
+      }
+
+      function appendArrow(svg, opening, isEntrance) {
+        const { from, to } = arrowGeometry(opening, isEntrance);
+        const group = document.createElementNS(SVG_NS, "g");
+        group.setAttribute("class", "direction-arrow");
+        group.setAttribute("data-kind", isEntrance ? "entrance" : "exit");
+        group.setAttribute("data-side", opening.side);
+        group.appendChild(createLine(from[0], from[1], to[0], to[1], "direction-arrow"));
+
+        const dx = to[0] - from[0];
+        const dy = to[1] - from[1];
+        const length = Math.hypot(dx, dy);
+        const ux = dx / length;
+        const uy = dy / length;
+        const px = -uy;
+        const py = ux;
+        const headLength = 0.34;
+        const headWidth = 0.23;
+        group.appendChild(createLine(
+          to[0], to[1],
+          to[0] - ux * headLength + px * headWidth,
+          to[1] - uy * headLength + py * headWidth,
+          "direction-arrow"
+        ));
+        group.appendChild(createLine(
+          to[0], to[1],
+          to[0] - ux * headLength - px * headWidth,
+          to[1] - uy * headLength - py * headWidth,
+          "direction-arrow"
+        ));
+        svg.appendChild(group);
+      }
+
+      function renderMaze(candidate, width, height) {
+        const cells = candidate.cells.slice();
+        removeBoundaryWall(cells, candidate.openings.entrance, width);
+        removeBoundaryWall(cells, candidate.openings.exit, width);
+
+        mazeSvg.replaceChildren();
+        mazeSvg.setAttribute("viewBox", `${-1.55} ${-1.55} ${width + 3.1} ${height + 3.1}`);
+        mazeSvg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+        mazeSvg.setAttribute(
+          "aria-label",
+          `${width} 乘 ${height} 的随机迷宫，入口和出口由箭头标记`
+        );
+
+        const walls = document.createElementNS(SVG_NS, "g");
+        walls.setAttribute("aria-hidden", "true");
+        for (let y = 0; y < height; y += 1) {
+          for (let x = 0; x < width; x += 1) {
+            const wallsAtCell = cells[cellIndex(x, y, width)];
+            if (wallsAtCell & N) walls.appendChild(createLine(x, y, x + 1, y, "wall"));
+            if (wallsAtCell & W) walls.appendChild(createLine(x, y, x, y + 1, "wall"));
+            if (y === height - 1 && (wallsAtCell & S)) {
+              walls.appendChild(createLine(x, y + 1, x + 1, y + 1, "wall"));
+            }
+            if (x === width - 1 && (wallsAtCell & E)) {
+              walls.appendChild(createLine(x + 1, y, x + 1, y + 1, "wall"));
+            }
+          }
+        }
+        mazeSvg.appendChild(walls);
+        appendArrow(mazeSvg, candidate.openings.entrance, true);
+        appendArrow(mazeSvg, candidate.openings.exit, false);
+
+        const ratio = (width + 3.1) / (height + 3.1);
+        mazeStage.style.setProperty("--screen-ratio", ratio.toFixed(5));
+        const printWidth = Math.min(190, 277 * ratio);
+        const printHeight = Math.min(277, 190 / ratio);
+        mazeStage.style.setProperty("--print-width", `${printWidth.toFixed(2)}mm`);
+        mazeStage.style.setProperty("--print-height", `${printHeight.toFixed(2)}mm`);
+      }
+
+      function generateAndRender() {
+        generateButton.disabled = true;
+        if (sizeSelect.value !== "custom") status.textContent = "";
+        const { width, height } = getDimensions();
+        const candidate = generateBestMaze(width, height, difficultySelect.value);
+        renderMaze(candidate, width, height);
+        generateButton.disabled = false;
+
+        /* 仅供自动测试读取，不在页面中显示，也不参与功能交互。 */
+        window.__mazeTestState = {
+          width,
+          height,
+          difficulty: difficultySelect.value,
+          cells: Array.from(candidate.cells),
+          openings: candidate.openings,
+          metrics: candidate.metrics
+        };
+      }
+
+      sizeSelect.addEventListener("change", () => {
+        customSize.classList.toggle("visible", sizeSelect.value === "custom");
+        status.textContent = "";
+      });
+      generateButton.addEventListener("click", generateAndRender);
+      [customWidth, customHeight].forEach(input => {
+        input.addEventListener("change", () => clampDimension(input));
+      });
+
+      generateAndRender();
+    })();
+  </script>
+</body>
+</html>
