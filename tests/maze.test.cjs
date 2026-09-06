@@ -8,9 +8,9 @@ const html = readFileSync(join(__dirname, '..', 'index.html'), 'utf8');
 const script = html.match(/<script>([\s\S]*?)<\/script>/)[1];
 
 function setup() {
-  function element() {
+  function element(tag = 'div') {
     return {
-      value: '', textContent: '', children: [], attributes: {}, events: {}, properties: {},
+      tag, value: '', textContent: '', children: [], attributes: {}, events: {}, properties: {},
       classList: { toggle() {} },
       style: { setProperty(key, value) { this[key] = value; } },
       addEventListener(key, callback) { this.events[key] = callback; },
@@ -29,7 +29,7 @@ function setup() {
     window: {}, document: {
       querySelector(selector) { return selector.includes(':checked') ? selected : nodes[selector]; },
       querySelectorAll() { return radios; },
-      createElementNS() { return element(); }
+      createElementNS(namespace, tag) { return element(tag); }
     }
   };
   vm.runInNewContext(script, context);
@@ -69,7 +69,9 @@ function validate(state, nodes) {
   }
   assert.equal(distance.size, w * h);
   assert.equal(distance.get(end) + 1, state.metrics.pathLength);
-  assert.ok(distance.get(end) >= Math.floor((w + h) * .55));
+  assert.ok(distance.get(end) >= Math.floor((w + h) * .5));
+  assert.equal(openings.entrance.side, 'top');
+  assert.equal(openings.exit.side, 'bottom');
   const outward = { top:[0,-1], right:[1,0], bottom:[0,1], left:[-1,0] };
   const svg = nodes['#mazeSvg'];
   const arrows = svg.children.filter(child => child.attributes['data-kind']);
@@ -83,8 +85,36 @@ function validate(state, nodes) {
   const printW = parseFloat(nodes['#mazeStage'].style['--print-width']);
   const printH = parseFloat(nodes['#mazeStage'].style['--print-height']);
   assert.ok(printW <= 190 && printH <= 276);
-  assert.ok(Math.abs(printW / printH - (w + 3.1) / (h + 3.1)) < .002);
+  assert.equal(printW / printH, 190 / 276);
   assert.equal(svg.attributes.preserveAspectRatio, 'xMidYMid meet');
+  assert.equal(svg.attributes.viewBox, '0 0 190 276');
+  const board = svg.children.find(child => child.attributes['data-maze'] === 'walls');
+  const bounds = {
+    x: +board.attributes['data-x'], y: +board.attributes['data-y'],
+    width: +board.attributes['data-width'], height: +board.attributes['data-height']
+  };
+  assert.ok(Math.abs(bounds.width / bounds.height - w / h) < .00001);
+  const art = svg.children.filter(child => child.attributes['data-art']);
+  assert.equal(art.filter(child => child.attributes['data-art'] === 'rabbit').length, 1);
+  assert.equal(art.filter(child => child.attributes['data-art'] === 'carrot').length, 1);
+  const boxes = art.map(child => ({
+    x: +child.attributes.x, y: +child.attributes.y,
+    width: +child.attributes.width, height: +child.attributes.height
+  }));
+  const overlaps = (a,b) => a.x < b.x+b.width && a.x+a.width > b.x && a.y < b.y+b.height && a.y+a.height > b.y;
+  for (let i = 0; i < boxes.length; i++) {
+    const box = boxes[i];
+    assert.ok(box.x >= 0 && box.y >= 24 && box.x + box.width <= 190 && box.y + box.height <= 266);
+    assert.ok(!overlaps(box, bounds), 'art must never obscure a maze passage');
+    for (let j = 0; j < i; j++) assert.ok(!overlaps(box, boxes[j]), 'art must not overlap another character');
+  }
+  assert.ok(svg.children.some(child => child.textContent === '小兔找胡萝卜'));
+  for (const arrow of arrows) {
+    const line = arrow.children[0].attributes;
+    assert.equal(Math.abs(+line.y2 - +line.y1), 6);
+    const opening = arrow.attributes['data-kind'] === 'entrance' ? openings.entrance : openings.exit;
+    assert.ok(Math.abs(+line.x1 - (bounds.x + (opening.x + .5) * bounds.width / w)) < .0001);
+  }
 }
 
 test('default, all presets, custom extremes: solvable trees, arrows and A4 geometry', () => {
@@ -129,4 +159,12 @@ test('offline resources and print stylesheet invariants (not browser pagination)
   assert.match(print, /display: none !important/);
   assert.match(print, /stroke-width: \.38mm/);
   assert.match(html, /@page \{ size: A4 portrait; margin: 10mm; \}/);
+  assert.doesNotMatch(html, /__COLORING_ART_DATA__/);
+  const data = script.match(/const ART_DATA = "data:image\/png;base64,([^"]+)";/)[1];
+  const png = Buffer.from(data, 'base64');
+  assert.equal(png.subarray(1,4).toString(), 'PNG');
+  assert.ok(png.length > 1000);
+  assert.match(script, /setAttribute\("tableValues", "0 1"\)/);
 });
+
+module.exports = { setup };
