@@ -3,237 +3,175 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>A4 随机迷宫生成器</title>
+  <meta name="description" content="迷宫小探险：儿童友好的离线 A4 随机迷宫生成器，黑白打印，双击即可使用。">
+  <title>迷宫小探险 · A4 迷宫生成器</title>
   <style>
     :root {
       color-scheme: light;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      color: #20231f;
-      background: #f6f7f2;
+      font-family: ui-rounded, "SF Pro Rounded", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+      color: #192c48;
+      background: #edf3fc;
+      font-synthesis: none;
+      --ink: #192c48;
+      --blue: #2859c5;
+      --muted: #526581;
     }
-
     * { box-sizing: border-box; }
-
     html, body { margin: 0; min-height: 100%; }
-
-    body { padding: 24px; }
-
-    .app {
-      width: min(100%, 980px);
-      margin: 0 auto;
-    }
-
-    h1 {
-      margin: 0 0 16px;
-      font-size: clamp(1.45rem, 3vw, 2rem);
-      text-align: center;
-    }
-
-    .controls {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: end;
-      justify-content: center;
-      gap: 14px;
-      padding: 16px;
-      border: 1px solid #d9ddd3;
-      border-radius: 12px;
-      background: #fff;
-    }
-
-    .field {
-      display: grid;
-      gap: 6px;
-      min-width: 150px;
-    }
-
-    label, legend {
-      font-size: .9rem;
-      font-weight: 650;
-    }
-
-    select, input, button {
-      min-height: 42px;
-      border: 1px solid #aeb5a7;
-      border-radius: 8px;
-      background: #fff;
-      color: inherit;
-      font: inherit;
-    }
-
-    select, input { padding: 8px 10px; }
-
-    .custom-size {
-      display: none;
-      align-items: center;
-      gap: 8px;
-    }
-
+    body { padding: 28px clamp(16px, 4vw, 56px) 36px; }
+    button, input, select { font: inherit; }
+    button, select, input { touch-action: manipulation; }
+    .app { max-width: 1240px; margin: 0 auto; }
+    .masthead { display: flex; gap: 20px; justify-content: space-between; align-items: center; margin-bottom: 26px; }
+    .brand { display: flex; gap: 14px; align-items: center; }
+    .brand-mark { width: 50px; height: 50px; color: var(--blue); flex-shrink: 0; }
+    h1 { margin: 0; font-size: clamp(1.6rem, 3vw, 2rem); font-weight: 850; letter-spacing: .03em; }
+    .tagline { margin: 4px 0 0; font-size: .9rem; color: var(--muted); }
+    .edition { font-size: .875rem; font-weight: 700; border: 1px solid #b7c6df; padding: 8px 14px; border-radius: 99px; white-space: nowrap; }
+    .workspace { display: grid; grid-template-columns: 282px minmax(0, 1fr); gap: 28px; align-items: start; }
+    .controls { border: 2px solid var(--ink); border-radius: 22px; background: #fff; padding: 24px 20px; min-width: 0; }
+    .panel-heading { display: flex; align-items: center; gap: 10px; margin: 0 0 26px; font-size: 1.2rem; }
+    .panel-heading span { display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: #ffd75b; font-size: 1rem; }
+    .field { display: grid; gap: 10px; min-width: 0; margin-bottom: 24px; }
+    .field > label, legend { font-size: 1rem; font-weight: 750; }
+    .step-number { color: var(--blue); font-size: .875rem; margin-right: 8px; font-variant-numeric: tabular-nums; }
+    select, input { width: 100%; min-height: 48px; border: 1.5px solid #a7b6cc; border-radius: 12px; color: var(--ink); background: #f8faff; padding: 10px 12px; }
+    select { cursor: pointer; }
+    .custom-size { display: none; align-items: center; gap: 10px; margin-top: -10px; }
     .custom-size.visible { display: flex; }
-
-    .custom-size input { width: 78px; }
-
-    button {
-      padding: 9px 20px;
-      border-color: #355f3d;
-      background: #3f7148;
-      color: #fff;
-      font-weight: 700;
-      cursor: pointer;
+    .custom-size .field { flex: 1; }
+    .custom-size label { font-size: .875rem; color: var(--muted); }
+    .custom-size input { min-width: 0; }
+    fieldset { min-width: 0; margin: 0 0 24px; padding: 0; border: 0; }
+    legend { padding: 0; margin-bottom: 10px; }
+    .difficulty-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+    .difficulty-choice { position: relative; cursor: pointer; }
+    .difficulty-choice input { position: absolute; width: 1px; height: 1px; min-height: 0; margin: 0; opacity: 0; }
+    .difficulty-choice span { display: block; text-align: center; padding: 13px 0; border: 1.5px solid #b9c6d9; border-radius: 12px; font-weight: 650; font-size: .95rem; }
+    .difficulty-choice input:checked + span { color: #fff; background: var(--blue); border-color: var(--blue); }
+    .difficulty-choice input:focus-visible + span { outline: 3px solid var(--ink); outline-offset: 3px; }
+    .field-note { font-size: .875rem; line-height: 1.6; color: var(--muted); margin: 10px 0 0; min-height: 2.8em; }
+    #generateButton { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; min-height: 56px; border: 2px solid var(--ink); border-radius: 14px; background: #ffd75b; color: var(--ink); font-weight: 800; cursor: pointer; }
+    #generateButton:hover { background: #ffe487; }
+    #generateButton:active { background: #efc243; }
+    #generateButton:disabled { opacity: .65; cursor: wait; }
+    .refresh-icon { width: 21px; height: 21px; flex-shrink: 0; }
+    button:focus-visible, select:focus-visible, input:focus-visible { outline: 3px solid var(--blue); outline-offset: 4px; }
+    .print-tip { border-top: 1px dashed #bdcadd; margin: 24px 0 0; padding-top: 20px; color: var(--muted); font-size: .875rem; line-height: 1.8; }
+    .print-tip strong { display: block; color: var(--ink); font-size: .95rem; margin-bottom: 6px; }
+    kbd { font-family: inherit; font-size: .85em; border: 1px solid #b3c1d4; border-radius: 5px; background: #f8faff; padding: 2px 5px; white-space: nowrap; }
+    .status { font-size: .875rem; line-height: 1.6; color: #844100; margin: 12px 0 0; }
+    .status:empty { display: none; }
+    .preview { min-width: 0; }
+    .preview-heading { display: flex; gap: 12px; align-items: center; justify-content: space-between; margin: 0 4px 12px; }
+    .preview-heading h2 { margin: 0; font-size: 1rem; font-weight: 750; }
+    #mazeSummary { font-size: .875rem; color: var(--muted); text-align: right; }
+    .paper { background: #fff; border: 1px solid #bdcbdc; border-radius: 5px; padding: clamp(12px, 2vw, 26px); border-bottom: 5px solid #c1cee0; }
+    .paper-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid #dbe2eb; padding: 0 0 14px; font-size: .875rem; color: var(--muted); }
+    .paper-header strong { color: var(--ink); font-size: 1rem; }
+    .maze-stage { --screen-ratio: 1; display: flex; justify-content: center; align-items: center; min-width: 0; width: 100%; padding: 16px 0; background: #fff; }
+    #mazeSvg { display: block; width: min(100%, calc(68vh * var(--screen-ratio))); height: auto; aspect-ratio: var(--screen-ratio); background: #fff; overflow: hidden; }
+    .wall { fill: none; stroke: #000; stroke-width: 1.6; stroke-linecap: square; vector-effect: non-scaling-stroke; }
+    .direction-arrow { fill: none; stroke: #000; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+    .paper-footer { text-align: center; font-size: .875rem; color: var(--muted); margin: 0; padding-top: 8px; }
+    .preview-footnote { margin: 12px 4px 0; color: var(--muted); font-size: .875rem; line-height: 1.6; }
+    @media (max-width: 860px) {
+      .workspace { grid-template-columns: 1fr; gap: 22px; }
+      .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; padding: 20px; }
+      .panel-heading, .print-tip, .status { grid-column: 1 / -1; }
+      .panel-heading, .field, fieldset { margin: 0; }
+      .custom-size { margin: 0; }
+      .custom-size.visible { grid-column: 1 / -1; grid-row: 3; }
+      #generateButton { grid-column: 1 / -1; }
+      .print-tip { margin: 0; padding-top: 12px; }
+      .print-tip strong { display: inline; margin-right: 8px; }
+      .field-note { min-height: 0; }
     }
-
-    button:hover { background: #345f3c; }
-    button:focus-visible, select:focus-visible, input:focus-visible {
-      outline: 3px solid #b8d6bd;
-      outline-offset: 2px;
+    @media (max-width: 480px) {
+      body { padding: 18px 12px 28px; }
+      .masthead { margin-bottom: 20px; gap: 8px; }
+      .brand { gap: 10px; }
+      .brand-mark { width: 38px; height: 38px; }
+      .edition { display: none; }
+      .controls { grid-template-columns: 1fr; gap: 18px; border-radius: 18px; padding: 18px; }
+      .custom-size.visible { grid-row: auto; }
+      .preview-heading { flex-wrap: wrap; }
+      .paper-header { font-size: .875rem; }
     }
-
-    .status {
-      min-height: 1.4em;
-      margin: 8px 0 0;
-      color: #6a3f00;
-      font-size: .88rem;
-      text-align: center;
-    }
-
-    .maze-stage {
-      --screen-ratio: 1;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 100%;
-      min-height: min(70vh, 760px);
-      margin-top: 18px;
-      padding: 8px;
-      overflow: hidden;
-      background: #fff;
-      border: 1px solid #e0e2dc;
-    }
-
-    #mazeSvg {
-      display: block;
-      width: min(100%, calc(70vh * var(--screen-ratio)));
-      max-height: 70vh;
-      background: #fff;
-    }
-
-    .wall {
-      stroke: #000;
-      stroke-width: 1.55;
-      stroke-linecap: square;
-      vector-effect: non-scaling-stroke;
-    }
-
-    .direction-arrow {
-      fill: none;
-      stroke: #000;
-      stroke-width: 2.2;
-      stroke-linecap: round;
-      stroke-linejoin: round;
-      vector-effect: non-scaling-stroke;
-    }
-
-    @media (max-width: 620px) {
-      body { padding: 12px; }
-      .controls { align-items: stretch; }
-      .field, button { width: 100%; }
-      .custom-size { justify-content: center; }
-      .maze-stage { min-height: 55vh; }
-      #mazeSvg { max-height: 60vh; }
-    }
-
-    /* 打印时锁定为单页 A4，并隐藏所有操作界面。 */
+    /* A4 可打印区域为 190×277mm；保留 1mm 排版余量，避免取整引发空白第二页。
+       根元素不能再设为整张纸尺寸，否则与 @page 边距叠加。 */
     @page { size: A4 portrait; margin: 10mm; }
-
     @media print {
-      html, body {
-        width: 210mm;
-        height: 297mm;
-        min-height: 0;
-        margin: 0;
-        padding: 0;
-        overflow: hidden;
-        background: #fff;
-      }
-
-      .app {
-        width: 190mm;
-        height: 277mm;
-        margin: 0;
-      }
-
-      h1, .controls, .status { display: none !important; }
-
-      .maze-stage {
-        display: flex;
-        width: 190mm;
-        height: 277mm;
-        min-height: 0;
-        margin: 0;
-        padding: 0;
-        border: 0;
-        overflow: hidden;
-        break-inside: avoid;
-        page-break-inside: avoid;
-      }
-
-      #mazeSvg {
-        width: var(--print-width);
-        height: var(--print-height);
-        max-width: 190mm;
-        max-height: 277mm;
-      }
-
-      .wall { stroke-width: 1.35; }
-      .direction-arrow { stroke-width: 1.9; }
+      html, body { width: auto; height: auto; min-height: 0; margin: 0; padding: 0; background: #fff; }
+      .masthead, .controls, .preview-heading, .paper-header, .paper-footer, .preview-footnote { display: none !important; }
+      .app, .workspace, .preview, .paper { display: block; width: 190mm; margin: 0; padding: 0; border: 0; border-radius: 0; background: #fff; }
+      .maze-stage { display: flex; width: 190mm; height: 276mm; min-height: 0; margin: 0; padding: 0; break-inside: avoid; page-break-inside: avoid; }
+      #mazeSvg { width: var(--print-width); height: var(--print-height); max-width: 190mm; max-height: 276mm; aspect-ratio: auto; }
+      /* 物理线宽不随格子数变细，50×50 仍可黑白打印；箭头比墙体更醒目。 */
+      .wall { stroke: #000; stroke-width: .38mm; }
+      .direction-arrow { stroke: #000; stroke-width: .6mm; }
     }
   </style>
 </head>
 <body>
+
   <main class="app">
-    <h1>A4 随机迷宫生成器</h1>
-
-    <section class="controls" aria-label="迷宫设置">
-      <div class="field">
-        <label for="sizeSelect">迷宫大小</label>
-        <select id="sizeSelect">
-          <option value="10x10">小（10 × 10）</option>
-          <option value="15x15">较小（15 × 15）</option>
-          <option value="20x20" selected>中等（20 × 20）</option>
-          <option value="25x25">较大（25 × 25）</option>
-          <option value="30x30">大（30 × 30）</option>
-          <option value="custom">自定义</option>
-        </select>
+    <header class="masthead">
+      <div class="brand">
+        <svg class="brand-mark" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M18 5H5v38h38V5H29M5 17h14v13h12V17h12M16 43V30M31 43v-6M19 17V5"/>
+        </svg>
+        <div><h1>迷宫小探险</h1><p class="tagline">一张纸，一支笔，出发吧。</p></div>
       </div>
-
-      <div id="customSize" class="custom-size" aria-label="自定义尺寸">
+      <span class="edition">A4 迷宫生成器 · 2.0</span>
+    </header>
+    <div class="workspace">
+      <section class="controls" aria-label="迷宫设置">
+        <h2 class="panel-heading"><span aria-hidden="true">＋</span>准备出发</h2>
         <div class="field">
-          <label for="customWidth">宽度</label>
-          <input id="customWidth" type="number" min="5" max="50" value="20" inputmode="numeric">
+          <label for="sizeSelect"><span class="step-number" aria-hidden="true">01</span>选一张地图</label>
+          <select id="sizeSelect" aria-label="迷宫大小">
+            <option value="10x10">小 · 10 × 10</option>
+            <option value="15x15">较小 · 15 × 15</option>
+            <option value="20x20" selected>中等 · 20 × 20</option>
+            <option value="25x25">较大 · 25 × 25</option>
+            <option value="30x30">大 · 30 × 30</option>
+            <option value="custom">自定义大小</option>
+          </select>
         </div>
-        <span aria-hidden="true">×</span>
-        <div class="field">
-          <label for="customHeight">高度</label>
-          <input id="customHeight" type="number" min="5" max="50" value="20" inputmode="numeric">
+        <div id="customSize" class="custom-size" aria-label="自定义尺寸">
+          <div class="field"><label for="customWidth">宽度</label><input id="customWidth" type="number" min="5" max="50" step="1" value="20" inputmode="numeric" aria-describedby="status"></div>
+          <span aria-hidden="true">×</span>
+          <div class="field"><label for="customHeight">高度</label><input id="customHeight" type="number" min="5" max="50" step="1" value="20" inputmode="numeric" aria-describedby="status"></div>
         </div>
-      </div>
-
-      <div class="field">
-        <label for="difficultySelect">迷宫难度</label>
-        <select id="difficultySelect">
-          <option value="easy">简单</option>
-          <option value="normal" selected>普通</option>
-          <option value="hard">困难</option>
-        </select>
-      </div>
-
-      <button id="generateButton" type="button">生成新迷宫</button>
-    </section>
-
-    <p id="status" class="status" role="status" aria-live="polite"></p>
-    <section id="mazeStage" class="maze-stage" aria-label="当前迷宫">
-      <svg id="mazeSvg" role="img" aria-label="随机生成的迷宫"></svg>
-    </section>
+        <fieldset aria-describedby="difficultyNote">
+          <legend><span class="step-number" aria-hidden="true">02</span>选一点挑战</legend>
+          <div class="difficulty-options">
+            <label class="difficulty-choice"><input type="radio" name="difficulty" value="easy"><span>简单</span></label>
+            <label class="difficulty-choice"><input type="radio" name="difficulty" value="normal" checked><span>普通</span></label>
+            <label class="difficulty-choice"><input type="radio" name="difficulty" value="hard"><span>困难</span></label>
+          </div>
+          <p id="difficultyNote" class="field-note">多绕几个弯，试试你的方向感。</p>
+        </fieldset>
+        <button id="generateButton" type="button">
+          <svg class="refresh-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5M5 8a8 8 0 0 1 13-2l2 3M4 15l2 3a8 8 0 0 0 13-2"/></svg>
+          生成新迷宫
+        </button>
+        <p id="status" class="status" role="status" aria-live="polite"></p>
+        <p class="print-tip"><strong>拿起笔，在纸上探险</strong>按 <kbd>Ctrl + P</kbd> 打印，Mac 用 <kbd>⌘ + P</kbd>。选择 A4 纵向，关闭页眉和页脚。</p>
+      </section>
+      <section class="preview" aria-label="迷宫预览">
+        <div class="preview-heading"><h2>你的探险地图</h2><span id="mazeSummary" aria-live="polite">20 × 20 · 普通</span></div>
+        <div class="paper">
+          <div class="paper-header"><strong>从箭头出发</strong><span>找到另一边的出口</span></div>
+          <div id="mazeStage" class="maze-stage">
+            <svg id="mazeSvg" role="img" aria-label="随机生成的迷宫"></svg>
+          </div>
+          <p class="paper-footer">慢慢来，每一个转弯都值得探索。</p>
+        </div>
+        <p id="printNote" class="preview-footnote">打印时只保留迷宫和箭头，不会打印彩色界面。</p>
+      </section>
+    </div>
   </main>
 
   <script>
@@ -254,7 +192,9 @@
       const SVG_NS = "http://www.w3.org/2000/svg";
 
       const sizeSelect = document.querySelector("#sizeSelect");
-      const difficultySelect = document.querySelector("#difficultySelect");
+      const difficultyInputs = document.querySelectorAll('input[name="difficulty"]');
+      const getDifficulty = () => document.querySelector('input[name="difficulty"]:checked').value;
+      const difficultyLabels = { easy: "简单", normal: "普通", hard: "困难" };
       const customSize = document.querySelector("#customSize");
       const customWidth = document.querySelector("#customWidth");
       const customHeight = document.querySelector("#customHeight");
@@ -267,7 +207,7 @@
       const cellIndex = (x, y, width) => y * width + x;
 
       function clampDimension(input) {
-        const original = Number(input.value);
+        const original = input.value.trim() === "" ? NaN : Number(input.value);
         const safe = Number.isFinite(original) ? Math.round(original) : 20;
         const clamped = Math.min(50, Math.max(5, safe));
         input.value = String(clamped);
@@ -640,17 +580,23 @@
 
         const ratio = (width + 3.1) / (height + 3.1);
         mazeStage.style.setProperty("--screen-ratio", ratio.toFixed(5));
-        const printWidth = Math.min(190, 277 * ratio);
-        const printHeight = Math.min(277, 190 / ratio);
+        const printWidth = Math.min(190, 276 * ratio);
+        const printHeight = Math.min(276, 190 / ratio);
         mazeStage.style.setProperty("--print-width", `${printWidth.toFixed(2)}mm`);
         mazeStage.style.setProperty("--print-height", `${printHeight.toFixed(2)}mm`);
+        document.querySelector("#mazeSummary").textContent =
+          `${width} × ${height} · ${difficultyLabels[getDifficulty()]}`;
+        const cellMillimeters = printWidth / (width + 3.1);
+        document.querySelector("#printNote").textContent = cellMillimeters < 5
+          ? `这张地图的通道约 ${cellMillimeters.toFixed(1)} mm 宽，适合细铅笔；想画得更轻松，可以选小一些的地图。打印只保留迷宫和箭头。`
+          : "打印时只保留迷宫和箭头，不会打印彩色界面。";
       }
 
       function generateAndRender() {
         generateButton.disabled = true;
         if (sizeSelect.value !== "custom") status.textContent = "";
         const { width, height } = getDimensions();
-        const candidate = generateBestMaze(width, height, difficultySelect.value);
+        const candidate = generateBestMaze(width, height, getDifficulty());
         renderMaze(candidate, width, height);
         generateButton.disabled = false;
 
@@ -658,7 +604,7 @@
         window.__mazeTestState = {
           width,
           height,
-          difficulty: difficultySelect.value,
+          difficulty: getDifficulty(),
           cells: Array.from(candidate.cells),
           openings: candidate.openings,
           metrics: candidate.metrics
@@ -671,7 +617,21 @@
       });
       generateButton.addEventListener("click", generateAndRender);
       [customWidth, customHeight].forEach(input => {
-        input.addEventListener("change", () => clampDimension(input));
+        input.addEventListener("change", () => {
+          const result = clampDimension(input);
+          status.textContent = result.changed ? "宽度和高度需为 5–50 的整数，已自动调整。" : "";
+        });
+      });
+
+      difficultyInputs.forEach(input => {
+        input.addEventListener("change", () => {
+          const notes = {
+            easy: "路线短一些，轻松找到小小成就感。",
+            normal: "多绕几个弯，试试你的方向感。",
+            hard: "路线更长，耐心探索每一个岔路。"
+          };
+          document.querySelector("#difficultyNote").textContent = notes[getDifficulty()];
+        });
       });
 
       generateAndRender();
